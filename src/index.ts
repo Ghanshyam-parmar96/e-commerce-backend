@@ -12,6 +12,7 @@ dotenv.config({
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Configure express middleware.
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -24,6 +25,13 @@ app.use(express.urlencoded({ extended: true, limit: "20kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+// routes import
+import productRoute from "./routes/product.route.js";
+
+// routes declarations
+app.use("/api/v1/product", productRoute);
+
+// connect mongodb
 connectDB()
   .then(() => {
     app.listen(port, () => {
