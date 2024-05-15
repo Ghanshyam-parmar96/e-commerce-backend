@@ -3,7 +3,7 @@ import {
   createProduct,
   deleteAllProducts,
 } from "../controllers/product.controller.js";
-import { zodProductSchema } from "../validators/product.validator.js";
+import { zodProductSchema } from "../validators/zodProduct.validator.js";
 import zodValidate from "../middlewares/zodValidate.middleware.js";
 
 const router = Router();

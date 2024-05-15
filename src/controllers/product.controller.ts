@@ -1,20 +1,41 @@
 import { Product } from "../models/product.model.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import {
+  colorAndSizeBothAreNotGiven,
+  colorAndSizeBothGiven,
+  onlyColorGiven,
+  onlySizeGiven,
+} from "../validators/product.validation.js";
 
 const createProduct = asyncHandler(async (req, res) => {
-  const { price, discountedPrice } = req.body;
+  const { isColor, isSize } = req.body;
 
-  const totalDiscount: number = discountedPrice || price;
-  const discountPercentage: number = Math.ceil(
-    ((price - totalDiscount) / 100) * 100
-  );
+  let productObj = {
+    success: false,
+    message: "",
+    data: {},
+  };
+
+  const image = [
+    "top seling phone",
+    "128 gb storage",
+    "12 bg ram",
+    "powerfull prosesor",
+  ];
+
+  if (isColor && isSize) productObj = colorAndSizeBothGiven(req.body);
+  if (!isColor && !isSize) productObj = colorAndSizeBothAreNotGiven(req.body);
+  if (!isColor && isSize) productObj = onlySizeGiven(req.body);
+  if (isColor && !isSize) productObj = onlyColorGiven(req.body);
+
+  if (!productObj.success) {
+    res.status(400).json(new ApiResponse(400, {}, productObj.message));
+    return;
+  }
 
   try {
-    const product = await Product.create({
-      ...req.body,
-      discountPercentage,
-    });
+    const product = await Product.create({ ...productObj.data, image });
 
     res
       .status(201)

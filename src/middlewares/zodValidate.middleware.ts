@@ -7,7 +7,11 @@ const validate = <T extends ZodSchema>(schema: T) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const parseBody = schema.parse(req.body);
-      req.body = { ...req.body, ...parseBody };
+
+      if (req.body.color !== undefined) parseBody.color = req.body.color;
+      if (req.body.size !== undefined) parseBody.size = req.body.size;
+
+      req.body = parseBody;
       next();
     } catch (err: unknown) {
       if (err instanceof ZodError) {

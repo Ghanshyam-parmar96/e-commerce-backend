@@ -7,8 +7,9 @@ const zodProductSchema = z.object({
     .min(5, { message: "title must be at least 5 characters long" }),
   highlight: z.string({ required_error: "highlight's are required" }).array(),
   price: z
-    .number({ required_error: "price is required" })
-    .positive({ message: "Price must be a number and greater than 0" }),
+    .number()
+    .positive({ message: "Price must be a number and greater than 0" })
+    .optional(),
   discountedPrice: z
     .number()
     .positive({
@@ -16,12 +17,14 @@ const zodProductSchema = z.object({
     })
     .optional(),
   images: z.string({ required_error: "Product image's are required" }).array(),
-  rating: z.number().positive().optional(),
+  rating: z.number().min(1).max(5).optional(),
   ratingCount: z.number().positive().optional(),
+  isColor: z.boolean({ required_error: "Product isColor is required" }),
+  isSize: z.boolean({ required_error: "Product isSize is required" }),
   stock: z
-    .number({ required_error: "stock is required" })
-    .min(1, { message: "minimum 1 quantity is required" }),
-
+    .number()
+    .min(1, { message: "minimum 1 quantity is required" })
+    .optional(),
   brand: z
     .string({ required_error: "category is required" })
     .trim()

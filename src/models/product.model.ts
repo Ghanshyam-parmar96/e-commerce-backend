@@ -1,18 +1,38 @@
 import mongoose from "mongoose";
 
+const optionalFields = new mongoose.Schema({
+  price: {
+    type: Number,
+  },
+  stock: {
+    type: Number,
+    min: [1, "Product quantity must be greater than 1"],
+  },
+  discountedPrice: {
+    type: Number,
+  },
+  discountPercent: {
+    type: Number,
+  },
+});
+
+const sizeColorStock = new mongoose.Schema({
+  connectionId: {
+    type: "string",
+  },
+  ...optionalFields.obj,
+});
+
 const productSizeFields = new mongoose.Schema({
   name: {
     type: String,
     required: [true, "Size name is required"],
   },
-  stock: {
-    type: Number,
-    required: [true, "Size stock is required"],
+  colorStock: {
+    type: [sizeColorStock],
+    default: undefined,
   },
-  price: {
-    type: Number,
-    required: [true, "Size price is required"],
-  },
+  ...optionalFields.obj,
 });
 
 const productSize = new mongoose.Schema({
@@ -27,11 +47,18 @@ const productSize = new mongoose.Schema({
 });
 
 const productColor = new mongoose.Schema({
-  ...productSizeFields.obj,
+  connectionId: {
+    type: "string",
+  },
+  name: {
+    type: String,
+    required: [true, "Size name is required"],
+  },
   image: {
     type: String,
     required: [true, "Product image is required"],
   },
+  ...optionalFields.obj,
 });
 
 const productSchema = new mongoose.Schema(
@@ -41,10 +68,6 @@ const productSchema = new mongoose.Schema(
       lowercase: true,
       required: [true, "Product title is required"],
     },
-    price: {
-      type: Number,
-      required: [true, "Product is required"],
-    },
     brand: {
       type: String,
       required: [true, "brand name is required"],
@@ -53,18 +76,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "category is required"],
     },
-    stock: {
-      type: Number,
-      required: [true, "Stock is required"],
-      min: [1, "Product quantity must be greater than 1"],
-    },
-    discountedPrice: {
-      type: Number,
-    },
-    discountPercentage: {
-      type: Number,
-    },
-    images: {
+    image: {
       type: [String],
       required: [true, "Product image is required"],
     },
@@ -80,12 +92,22 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    isSize: {
+      type: Boolean,
+      required: [true, "Product isSize is required"],
+    },
+    isColor: {
+      type: Boolean,
+      required: [true, "Product isColor is required"],
+    },
     size: {
       type: productSize,
     },
     color: {
       type: [productColor],
+      default: undefined,
     },
+    ...optionalFields.obj,
     moreDetails: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProductDetails",
