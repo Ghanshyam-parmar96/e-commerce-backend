@@ -69,3 +69,9 @@ export interface ProductFnReturnType {
   message: string;
   data: ProductInterface | {};
 }
+
+export interface newProductRequestBody {
+  name: string;
+  age: number;
+  gender: string;
+}

@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import morgan from "morgan";
 
 import connectDB from "./db/index.js";
 
@@ -12,16 +13,19 @@ dotenv.config({
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configure express middleware.
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-  })
-);
+app.use(cors());
 
+// Configure express middleware.
+// app.use(
+//   cors({
+//     origin: "http://localhost:3000",
+//     credentials: true,
+//   })
+// );
+
+app.use(morgan("dev"));
 app.use(express.json({ limit: "20kb" }));
-app.use(express.urlencoded({ extended: true, limit: "20kb" }));
+// app.use(express.urlencoded({ extended: true, limit: "20kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
@@ -41,7 +45,3 @@ connectDB()
   .catch((err) => {
     console.log("MongoDB connection Failed ", err);
   });
-
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});

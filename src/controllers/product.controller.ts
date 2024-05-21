@@ -45,11 +45,18 @@ const createProduct = asyncHandler(async (req, res) => {
   }
 });
 
-const deleteAllProducts = asyncHandler(async (req, res) => {
+const getAllProducts = asyncHandler(async (_, res) => {
+  const products = await Product.find({});
+  res
+    .status(200)
+    .json(new ApiResponse(200, products, "Products fetched successfully"));
+});
+
+const deleteAllProducts = asyncHandler(async (_, res) => {
   await Product.deleteMany({});
   res
     .status(200)
     .json(new ApiResponse(200, null, "All products deleted successfully"));
 });
 
-export { createProduct, deleteAllProducts };
+export { createProduct, deleteAllProducts, getAllProducts };

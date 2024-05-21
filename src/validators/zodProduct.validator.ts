@@ -16,7 +16,7 @@ const zodProductSchema = z.object({
       message: "discountedPrice must be a number and greater than 0",
     })
     .optional(),
-  images: z.string({ required_error: "Product image's are required" }).array(),
+  image: z.string({ required_error: "Product image's are required" }).array(),
   rating: z.number().min(1).max(5).optional(),
   ratingCount: z.number().positive().optional(),
   isColor: z.boolean({ required_error: "Product isColor is required" }),
