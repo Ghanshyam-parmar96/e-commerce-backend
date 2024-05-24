@@ -1,41 +1,50 @@
 import asyncHandler from "../utils/asyncHandler.js";
-import sharp from "sharp";
-import { promises as fs } from "fs";
-import path from "path";
+import sharp, { FormatEnum } from "sharp";
+import * as fs_extra from "fs-extra";
 
 const productImageResizer = asyncHandler(async (req, res, next) => {
-  if (!req.files) return next();
+  if (!req.files || req.files.length === 0) return next();
 
-  const files = req.files as Express.Multer.File[]; // Type assertion for req.files
-
-  await Promise.all(
-    files.map(async (file) => {
-      const newFileName = `${path.parse(file.path).name}.webp`;
-      const newPath = path.join(path.dirname(file.path), newFileName);
-
-      try {
-        await sharp(file.path)
-          .resize(500, 500, {
-            fit: "contain",
-            background: { r: 255, g: 255, b: 255 },
-          })
-          .toFormat("webp")
-          .webp({ lossless: true })
-          .toFile(newPath);
-
-        // Remove the original file
-        await fs.unlink(file.path);
-
-        // Update the file path in the req.files array
-        file.path = newPath;
-        file.filename = newFileName; // Update the filename property if needed
-      } catch (error) {
-        console.error(`Error processing file ${file.path}:`, error);
-      }
-    })
-  );
-
-  next();
+  try {
+    for (const item of req.files as Express.Multer.File[]) {
+      const inputPath = item.path;
+      const outputPath = await processImage(inputPath, "webp", 500, 500);
+      await fs_extra.remove(inputPath);
+      item.path = outputPath;
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
+
+const processImage = async (
+  inputPath: string,
+  targetFormat: string,
+  targetWidth: number,
+  targetHeight: number
+): Promise<string> => {
+  const outputPath = `./public/temp/${Date.now()}-${Math.round(Math.random() * 1e9)}-processed.${targetFormat}`;
+  try {
+    sharp.cache(false);
+    const metadata = await sharp(inputPath).metadata();
+
+    if (metadata.format !== targetFormat) {
+      await sharp(inputPath)
+        .resize(targetWidth, targetHeight)
+        .webp({ lossless: true })
+        .toFormat(targetFormat as keyof FormatEnum)
+        .toFile(outputPath);
+    } else {
+      await sharp(inputPath)
+        .resize(targetWidth, targetHeight)
+        .webp({ lossless: true })
+        .toFile(outputPath);
+    }
+    return outputPath;
+  } catch (error: any) {
+    throw new Error(`Error processing image: ${error.message}`);
+  }
+};
 
 export { productImageResizer };
