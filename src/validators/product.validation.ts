@@ -1,8 +1,6 @@
 import { Product_available_size } from "../constants.js";
-import {
-  ProductFnReturnType,
-  ProductInterface,
-} from "../types/product.type.js";
+import { ProductInterface } from "../types/product.type.js";
+import { ApiError } from "../utils/apiError.js";
 
 type ObjectWithKeys<T> = {
   [K in keyof T]: any;
@@ -87,38 +85,27 @@ const filterArray = <T>(
 
 const colorAndSizeBothGiven = (
   requiredProperties: ProductInterface
-): ProductFnReturnType => {
-  const requiredObj = filterObject(requiredProperties, [
-    "title",
-    "highlight",
-    "category",
-    "brand",
-    "isColor",
-    "isSize",
-    "color",
-    "size",
-  ]);
+): ProductInterface => {
+  const requiredObj = filterObject(
+    requiredProperties,
+    [
+      "title",
+      "highlight",
+      "category",
+      "brand",
+      "isColor",
+      "isSize",
+      "color",
+      "size",
+    ],
+    ["image"]
+  );
 
   if (!requiredObj.success) {
-    return {
-      success: false,
-      message: "please provide all required properties",
-      data: {},
-    };
+    throw new ApiError(400, "please provide all required properties");
   }
 
   requiredProperties = requiredObj.data;
-
-  if (
-    !requiredProperties.hasOwnProperty("color") ||
-    !requiredProperties.hasOwnProperty("size")
-  ) {
-    return {
-      success: false,
-      message: "Both 'color' and 'size' properties are required",
-      data: {},
-    };
-  }
 
   // Check if size property is available
   if (
@@ -126,12 +113,10 @@ const colorAndSizeBothGiven = (
     Array.isArray(requiredProperties.size) ||
     Object.keys(requiredProperties.size).length <= 0
   ) {
-    return {
-      success: false,
-      message:
-        "The 'size' property must be an object and provide the required fields",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "The 'size' property must be an object and provide the required fields"
+    );
   }
 
   // check if color is available and its an array
@@ -139,37 +124,30 @@ const colorAndSizeBothGiven = (
     !Array.isArray(requiredProperties.color) ||
     requiredProperties.color.length === 0
   ) {
-    return {
-      success: false,
-      message:
-        "The 'color' property must be an array and provide the required fields",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "The color property must be an array and provide the required fields"
+    );
   }
 
-  const isColorValid = filterArray(requiredProperties.color, [
-    "name",
-    "image",
-    "connectionId",
-  ]);
+  const isColorValid = filterArray(
+    requiredProperties.color,
+    ["name", "connectionId"],
+    ["image"]
+  );
 
   if (!isColorValid.success) {
-    return {
-      success: false,
-      message: "Please specify all required fields for each color object",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "Please specify all required fields for each color object"
+    );
   }
 
   const colorId = isColorValid.data.map((el) => el.connectionId);
   const colorUniqueKey = [...new Set(colorId)].length;
 
   if (colorId.length !== colorUniqueKey) {
-    return {
-      success: false,
-      message: "The 'color' property must have a unique _id",
-      data: {},
-    };
+    throw new ApiError(400, "the 'color' property must have a unique id");
   }
 
   requiredProperties.color = isColorValid.data;
@@ -182,13 +160,12 @@ const colorAndSizeBothGiven = (
     !isIncludeInRequiredSize ||
     !Array.isArray(requiredProperties?.size[givenSize])
   ) {
-    return {
-      success: false,
-      message: isIncludeInRequiredSize
+    throw new ApiError(
+      400,
+      isIncludeInRequiredSize
         ? `The 'size' property must be of size ${givenSize} and must be an array`
-        : "invalid size property",
-      data: {},
-    };
+        : "invalid size property"
+    );
   }
 
   const sizeArray = requiredProperties?.size[givenSize];
@@ -196,22 +173,16 @@ const colorAndSizeBothGiven = (
   const isSizeValid = filterArray(sizeArray, ["name", "colorStock"]);
 
   if (!isSizeValid.success) {
-    return {
-      success: false,
-      message:
-        "Please specify all required fields for each size object and its colorStock",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "Please specify all required fields for each size object"
+    );
   }
 
   const sizeColorStock: any[] = [];
   for (const el of sizeArray) {
     if (!Array.isArray(el.colorStock)) {
-      return {
-        success: false,
-        message: "colorStock must be an Array",
-        data: [],
-      };
+      throw new ApiError(400, "colorStock must be an Array");
     }
     const data = filterArray(
       el.colorStock,
@@ -220,22 +191,17 @@ const colorAndSizeBothGiven = (
     );
 
     if (!data.success) {
-      return {
-        success: false,
-        message: "please provide colorStock required fields",
-        data: [],
-      };
+      throw new ApiError(400, "please provide colorStock required fields");
     }
 
     if (
       data.data.length !== colorUniqueKey ||
       !data.data.every((el) => colorId.includes(el.connectionId))
     ) {
-      return {
-        success: false,
-        message: `only ${colorUniqueKey} number of colorStock valid and Every colorStock must have connectionId of every color`,
-        data: [],
-      };
+      throw new ApiError(
+        400,
+        "Every colorStock must have connectionId of every color"
+      );
     }
 
     const colorStockData = data.data.map((data) => ({
@@ -254,32 +220,20 @@ const colorAndSizeBothGiven = (
     colorStock: sizeColorStock[i],
   }));
 
-  return {
-    success: true,
-    message: "Product created successfully",
-    data: requiredProperties,
-  };
+  return requiredProperties;
 };
 
 const onlySizeGiven = (
   requiredProperties: ProductInterface
-): ProductFnReturnType => {
-  const requiredObj = filterObject(requiredProperties, [
-    "title",
-    "highlight",
-    "category",
-    "brand",
-    "isColor",
-    "isSize",
-    "size",
-  ]);
+): ProductInterface => {
+  const requiredObj = filterObject(
+    requiredProperties,
+    ["title", "highlight", "category", "brand", "isColor", "isSize", "size"],
+    ["image"]
+  );
 
   if (!requiredObj.success) {
-    return {
-      success: false,
-      message: "please provide all required properties",
-      data: {},
-    };
+    throw new ApiError(400, "please provide all required properties");
   }
 
   requiredProperties = requiredObj.data;
@@ -289,12 +243,10 @@ const onlySizeGiven = (
     Array.isArray(requiredProperties.size) ||
     Object.keys(requiredProperties.size).length <= 0
   ) {
-    return {
-      success: false,
-      message:
-        "The 'size' property must be an object and provide the required fields",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "size property must be an object and provide all required fields"
+    );
   }
 
   const requiredSizes = Product_available_size;
@@ -305,13 +257,12 @@ const onlySizeGiven = (
     !isIncludeInRequiredSize ||
     !Array.isArray(requiredProperties?.size[givenSize])
   ) {
-    return {
-      success: false,
-      message: isIncludeInRequiredSize
-        ? `The 'size' property must be of size ${givenSize} and must be an array`
-        : "invalid size property",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      isIncludeInRequiredSize
+        ? `The'size' property must be of size ${givenSize} and must be an array`
+        : "invalid size property"
+    );
   }
 
   const sizeArray = requiredProperties?.size[givenSize];
@@ -322,11 +273,10 @@ const onlySizeGiven = (
   );
 
   if (!isSizeValid.success) {
-    return {
-      success: false,
-      message: `Please specify all required fields for size of ${givenSize}`,
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "Please specify all required fields for each size object"
+    );
   }
 
   const isSizeValidData = isSizeValid.data.map((data) => ({
@@ -338,32 +288,20 @@ const onlySizeGiven = (
 
   requiredProperties.size[givenSize] = isSizeValidData;
 
-  return {
-    success: true,
-    message: "Product created successfully",
-    data: requiredProperties,
-  };
+  return requiredProperties;
 };
 
 const onlyColorGiven = (
   requiredProperties: ProductInterface
-): ProductFnReturnType => {
-  const requiredObj = filterObject(requiredProperties, [
-    "title",
-    "highlight",
-    "category",
-    "brand",
-    "isColor",
-    "isSize",
-    "color",
-  ]);
+): ProductInterface => {
+  const requiredObj = filterObject(
+    requiredProperties,
+    ["title", "highlight", "category", "brand", "isColor", "isSize", "color"],
+    ["image"]
+  );
 
   if (!requiredObj.success) {
-    return {
-      success: false,
-      message: "please provide all required properties",
-      data: {},
-    };
+    throw new ApiError(400, "please provide all required properties");
   }
 
   requiredProperties = requiredObj.data;
@@ -372,64 +310,55 @@ const onlyColorGiven = (
     !Array.isArray(requiredProperties.color) ||
     requiredProperties.color.length <= 0
   ) {
-    return {
-      success: false,
-      message:
-        "color property must be required an array of object and it's length must be greater than zero",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "color property must be required an array of object and it's length must be greater than zero"
+    );
   }
 
   const isValidColor = filterArray(
     requiredProperties?.color,
-    ["name", "image", "stock", "price"],
-    ["discountedPrice"]
+    ["name", "stock", "price"],
+    ["discountedPrice", "image"]
   );
 
   if (!isValidColor.success) {
-    return {
-      success: false,
-      message: "please specify a required field for color",
-      data: {},
-    };
+    throw new ApiError(
+      400,
+      "Please specify all required fields for each color object"
+    );
   }
 
-  const isValidColorData = isValidColor.data.map((data) => ({
+  requiredProperties.color = isValidColor.data.map((data) => ({
     ...data,
     discountPercent: Math.ceil(
       ((data.price - (data?.discountedPrice || data.price)) / data.price) * 100
     ),
   }));
 
-  requiredProperties.color = isValidColorData;
-
-  return {
-    success: true,
-    message: "product created successfully",
-    data: requiredProperties,
-  };
+  return requiredProperties;
 };
 
 const colorAndSizeBothAreNotGiven = (
   requiredProperties: ProductInterface
-): ProductFnReturnType => {
-  const requiredObj = filterObject(requiredProperties, [
-    "title",
-    "highlight",
-    "category",
-    "brand",
-    "isColor",
-    "isSize",
-    "price",
-    "stock",
-  ]);
+): ProductInterface => {
+  const requiredObj = filterObject(
+    requiredProperties,
+    [
+      "title",
+      "highlight",
+      "category",
+      "brand",
+      "isColor",
+      "isSize",
+      "price",
+      "stock",
+    ],
+    ["image"]
+  );
 
   if (!requiredObj.success) {
-    return {
-      success: false,
-      message: "please provide all required properties",
-      data: {},
-    };
+    throw new ApiError(400, "please provide all required properties");
   }
 
   requiredProperties = requiredObj.data;
@@ -443,11 +372,7 @@ const colorAndSizeBothAreNotGiven = (
 
   requiredProperties.discountPercent = discountPercentage;
 
-  return {
-    success: true,
-    message: "product created successfully",
-    data: requiredProperties,
-  };
+  return requiredProperties;
 };
 
 export {

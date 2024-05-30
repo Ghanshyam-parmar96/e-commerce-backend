@@ -15,6 +15,17 @@ export interface productSizeOptions {
   }[];
 }
 
+export interface productColorOptions {
+  _id: number;
+  name: string;
+  image: string;
+  stock?: number;
+  price?: number;
+  connectionId?: string;
+  discountedPrice?: number;
+  discountPercent?: number;
+}
+
 export interface ProductInterface {
   title: string;
   highlight: string[];
@@ -27,16 +38,7 @@ export interface ProductInterface {
   discountPercent?: number;
   isColor: boolean;
   isSize: boolean;
-  color?: {
-    _id: number;
-    name: string;
-    image: string;
-    stock?: number;
-    price?: number;
-    connectionId?: string;
-    discountedPrice?: number;
-    discountPercent?: number;
-  }[];
+  color?: productColorOptions[];
   size?: {
     ram: productSizeOptions[];
     [index: string]: productSizeOptions[];
@@ -74,4 +76,22 @@ export interface newProductRequestBody {
   name: string;
   age: number;
   gender: string;
+}
+
+export interface searchRequestQuery {
+  query?: string;
+  category?: string;
+  sort_by?: string;
+  page?: string;
+  limit?: string;
+  price?: { gte?: number; lte?: number; gt?: number; lt?: number };
+}
+
+export interface searchBaseQuery {
+  highlight?: {
+    $regex: string;
+    $options: string;
+  };
+  price?: { gte?: number; lte?: number; gt?: number; lt?: number };
+  category?: string;
 }
