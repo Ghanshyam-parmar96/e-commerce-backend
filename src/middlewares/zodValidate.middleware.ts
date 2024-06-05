@@ -7,17 +7,9 @@ import fs_extra from "fs-extra";
 const validate = <T extends ZodSchema>(schema: T) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const { data } = req.body;
-      if (!data) {
-        throw new ApiError(400, "data is required");
-      }
+      console.log(JSON.parse(req.body.data));
 
-      const reqBody = JSON.parse(req.body.data);
-      const parseBody = schema.parse(reqBody);
-
-      if (reqBody.color !== undefined) parseBody.color = reqBody.color;
-      if (reqBody.size !== undefined) parseBody.size = reqBody.size;
-
+      const parseBody = schema.parse(JSON.parse(req.body.data));
       req.body = parseBody;
 
       next();
@@ -35,7 +27,7 @@ const validate = <T extends ZodSchema>(schema: T) => {
           .status(400)
           .json(new ApiResponse(400, error_messages, "invalid request"));
       } else {
-        throw new ApiError(400, "Invalid fields");
+        throw new ApiError(400, "please provide a valid json");
       }
     }
   };

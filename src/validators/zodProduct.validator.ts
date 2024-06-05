@@ -1,29 +1,44 @@
 import { z } from "zod";
+import isValidMongodbId from "../utils/isValidMongodbId.js";
+
+const productSize = z.object({
+  name: z.string({ required_error: "size name is required" }),
+  title: z.string({ required_error: "title title is required" }),
+  price: z.number({ required_error: "size price is required" }).positive(),
+  MRP: z
+    .number({ required_error: "size discounted price is required" })
+    .positive()
+    .optional(),
+  discountPercent: z
+    .number({ required_error: "size discountPercent is required" })
+    .positive()
+    .optional(),
+  stock: z.number({ required_error: "size stock is required" }).positive(),
+});
+
+const productColor = z.object({
+  productId: z.string({ required_error: "product id is required" }),
+  name: z.string({ required_error: "product name is required" }),
+  image: z.string({ required_error: "product image is required" }),
+});
 
 const zodProductSchema = z.object({
+  uniqueId: z
+    .string()
+    .transform((id) => isValidMongodbId(id || ""))
+    .optional(),
   title: z
-    .string({ required_error: "title is required" })
+    .string()
     .trim()
-    .min(5, { message: "title must be at least 5 characters long" }),
+    .min(10, { message: "title must be at least 10 characters long" })
+    .optional(),
   highlight: z.string({ required_error: "highlight's are required" }).array(),
-  price: z
-    .number()
-    .positive({ message: "Price must be a number and greater than 0" })
-    .optional(),
-  discountedPrice: z
-    .number()
-    .positive({
-      message: "discountedPrice must be a number and greater than 0",
-    })
-    .optional(),
-  rating: z.number().min(1).max(5).optional(),
-  ratingCount: z.number().positive().optional(),
-  isColor: z.boolean({ required_error: "Product isColor is required" }),
-  isSize: z.boolean({ required_error: "Product isSize is required" }),
-  stock: z
-    .number()
-    .min(1, { message: "minimum 1 quantity is required" })
-    .optional(),
+  image: z.string().array().optional(),
+  price: z.number().positive().optional(),
+  MRP: z.number().positive().optional(),
+  rating: z.number().lte(5).gte(0).optional(),
+  ratingCount: z.number().nonnegative().optional(),
+  stock: z.number().positive().optional(),
   brand: z
     .string({ required_error: "category is required" })
     .trim()
@@ -32,6 +47,12 @@ const zodProductSchema = z.object({
     .string({ required_error: "category is required" })
     .trim()
     .min(3, { message: "category must be at least 3 characters long" }),
+  colorName: z.string().optional(),
+  moreDetails: z.string().optional(),
+  size: z.array(productSize).optional(),
+  color: z.array(productColor).optional(),
 });
 
-export { zodProductSchema };
+const zodUpdateProductSchema = zodProductSchema.partial();
+
+export { zodProductSchema, zodUpdateProductSchema };

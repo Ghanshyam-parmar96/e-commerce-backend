@@ -1,71 +1,58 @@
 import mongoose from "mongoose";
+import {
+  IProduct,
+  IProductColor,
+  IProductSize,
+} from "../types/product.type.js";
 
-const optionalFields = new mongoose.Schema({
-  price: {
-    type: Number,
+const productSize = new mongoose.Schema<IProductSize>({
+  name: {
+    type: String,
+    required: [true, "Size name is required"],
+  },
+  title: {
+    type: String,
+    required: [true, "Size title is required"],
   },
   stock: {
     type: Number,
-    min: [1, "Product quantity must be greater than 1"],
+    required: [true, "Size stock is required"],
   },
-  discountedPrice: {
+  price: {
+    type: Number,
+    required: [true, "Size price is required"],
+  },
+  MRP: {
     type: Number,
   },
   discountPercent: {
     type: Number,
+    required: [true, "size discountPercent is required"],
   },
 });
 
-const sizeColorStock = new mongoose.Schema({
-  connectionId: {
-    type: "string",
-  },
-  ...optionalFields.obj,
-});
-
-const productSizeFields = new mongoose.Schema({
-  name: {
+const productColor = new mongoose.Schema<IProductColor>({
+  productId: {
     type: String,
-    required: [true, "Size name is required"],
-  },
-  colorStock: {
-    type: [sizeColorStock],
-    default: undefined,
-  },
-  ...optionalFields.obj,
-});
-
-const productSize = new mongoose.Schema({
-  ram: {
-    type: [productSizeFields],
-    default: undefined,
-  },
-  liter: {
-    type: [productSizeFields],
-    default: undefined,
-  },
-});
-
-const productColor = new mongoose.Schema({
-  connectionId: {
-    type: "string",
-  },
-  name: {
-    type: String,
-    required: [true, "Size name is required"],
+    required: [true, "Color Product id is required"],
   },
   image: {
     type: String,
-    required: [true, "Product image is required"],
+    required: [true, "Color image is required"],
   },
-  ...optionalFields.obj,
+  name: {
+    type: String,
+    required: [true, "Color name is required"],
+  },
 });
 
-const productSchema = new mongoose.Schema(
+const productSchema = new mongoose.Schema<IProduct>(
   {
+    uniqueId: {
+      type: mongoose.Types.ObjectId,
+    },
     title: {
       type: String,
-      lowercase: true,
       required: [true, "Product title is required"],
     },
     brand: {
@@ -84,6 +71,24 @@ const productSchema = new mongoose.Schema(
       type: [String],
       required: [true, "Product highlight is required"],
     },
+    colorName: {
+      type: String,
+    },
+    price: {
+      type: Number,
+      required: [true, "Product price is required"],
+    },
+    MRP: {
+      type: Number,
+    },
+    discountPercent: {
+      type: Number,
+      required: [true, "size discountPercent is required"],
+    },
+    stock: {
+      type: Number,
+      required: [true, "stock quantity is required"],
+    },
     rating: {
       type: Number,
       default: 0,
@@ -92,30 +97,23 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    isSize: {
-      type: Boolean,
-      required: [true, "Product isSize is required"],
-    },
-    isColor: {
-      type: Boolean,
-      required: [true, "Product isColor is required"],
-    },
-    size: {
-      type: productSize,
-    },
     color: {
       type: [productColor],
       default: undefined,
     },
-    ...optionalFields.obj,
+    size: {
+      type: [productSize],
+      default: undefined,
+    },
+    selectedSizeIndex: {
+      type: Number,
+    },
     moreDetails: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProductDetails",
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-export const Product = mongoose.model("Product", productSchema);
+export const Product = mongoose.model<IProduct>("Product", productSchema);

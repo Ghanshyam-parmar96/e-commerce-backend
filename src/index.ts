@@ -31,9 +31,12 @@ app.use(cookieParser());
 
 // routes import
 import productRoute from "./routes/product.route.js";
+import prodRoute from "./routes/prod.route.js";
 
 // routes declarations
 app.use("/api/v1/product", productRoute);
+
+app.use("/api/v1/prod", prodRoute);
 
 // connect mongodb
 connectDB()
