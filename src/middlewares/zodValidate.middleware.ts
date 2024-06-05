@@ -7,17 +7,23 @@ import fs_extra from "fs-extra";
 const validate = <T extends ZodSchema>(schema: T) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      console.log(JSON.parse(req.body.data));
-
-      const parseBody = schema.parse(JSON.parse(req.body.data));
+      let parseBody;
+      if (req.body.data) {
+        parseBody = JSON.parse(req.body.data);
+      } else {
+        parseBody = req.body;
+      }
+      schema.parse(parseBody);
       req.body = parseBody;
 
       next();
     } catch (err: unknown) {
-      // const files = req.files as Express.Multer.File[];
-      // for (let i = 0; i < files.length; i++) {
-      //   fs_extra.removeSync(files[i].path);
-      // }
+      const files = req.files as Express.Multer.File[];
+      if (files && files.length !== 0) {
+        for (let i = 0; i < files.length; i++) {
+          fs_extra.removeSync(files[i].path);
+        }
+      }
       if (err instanceof ZodError) {
         const error_messages = err.errors?.map((e) => ({
           path: e.path[0],

@@ -55,6 +55,7 @@ router
 router
   .route("/add-product-image/:id")
   .put(upload.array("image", 3), addProductImage);
+
 router
   .route("/product-image/:id/:imageIndex")
   .put(upload.array("image", 5), updateProductImage)

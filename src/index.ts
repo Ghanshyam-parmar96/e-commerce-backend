@@ -31,12 +31,11 @@ app.use(cookieParser());
 
 // routes import
 import productRoute from "./routes/product.route.js";
-import prodRoute from "./routes/prod.route.js";
-
+import couponRoute from "./routes/coupon.route.js";
 // routes declarations
 app.use("/api/v1/product", productRoute);
 
-app.use("/api/v1/prod", prodRoute);
+app.use("/api/v1/coupon", couponRoute);
 
 // connect mongodb
 connectDB()
