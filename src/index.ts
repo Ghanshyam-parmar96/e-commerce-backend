@@ -34,6 +34,7 @@ import productRoute from "./routes/product.route.js";
 import couponRoute from "./routes/coupon.route.js";
 import categoryRoute from "./routes/category.route.js";
 import brandRoute from "./routes/brand.route.js";
+import orderRoute from "./routes/order.route.js";
 
 // routes declarations
 app.use("/api/v1/product", productRoute);
@@ -43,6 +44,8 @@ app.use("/api/v1/coupon", couponRoute);
 app.use("/api/v1/category", categoryRoute);
 
 app.use("/api/v1/brand", brandRoute);
+
+app.use("/api/v1/order", orderRoute);
 
 // connect mongodb
 connectDB()

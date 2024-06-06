@@ -1,4 +1,4 @@
-import { Document, Types } from "mongoose";
+import { Document, ObjectId, Types } from "mongoose";
 
 // Interface for the main Product document
 export interface IProduct extends Document {
@@ -80,4 +80,35 @@ export interface searchCategoryQuery {
   sort_by?: string;
   page?: string;
   limit?: string;
+}
+
+export interface IOrderItem {
+  productId: string;
+  quantity: number;
+  price: number;
+  size?: string;
+  color?: string;
+  selectedIndex?: number;
+}
+
+export interface IOrderShippingAddress {
+  address: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  country: string;
+}
+
+export interface IOrder extends Document {
+  userId: string;
+  orderItems: IOrderItem[];
+  shippingAddress: IOrderShippingAddress;
+  subtotal: number;
+  tax?: number;
+  shippingCharges?: number;
+  discount?: number;
+  total: number;
+  paymentMethod: string;
+  status?: string;
+  deliveredAt?: Date;
 }
