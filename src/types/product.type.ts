@@ -78,4 +78,6 @@ export interface ICategory {
 export interface searchCategoryQuery {
   query?: string;
   sort_by?: string;
+  page?: string;
+  limit?: string;
 }

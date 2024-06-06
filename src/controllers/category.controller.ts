@@ -117,6 +117,10 @@ const searchCategory = asyncHandler(
   async (req: Request<{}, {}, {}, searchCategoryQuery>, res) => {
     const { query, sort_by } = req.query;
 
+    const page = Math.abs(Number(req.query.page)) || 1;
+    const limit = Math.min(Math.abs(Number(req.query.limit)), 20);
+    const skip = (page - 1) * limit;
+
     const sort: { [index: string]: SortOrder } = {};
     const baseQuery: { name?: { $regex: string; $options: string } } = {};
 
@@ -131,7 +135,8 @@ const searchCategory = asyncHandler(
 
     const categories = await Category.find(baseQuery)
       .sort(sort_by && sort)
-      .limit(30);
+      .limit(limit)
+      .skip(skip);
 
     res
       .status(200)
