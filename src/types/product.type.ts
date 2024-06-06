@@ -69,3 +69,13 @@ export interface ICoupon {
   discount: number;
   createdAt: Date;
 }
+
+export interface ICategory {
+  name: string;
+  image: string;
+}
+
+export interface searchCategoryQuery {
+  query?: string;
+  sort_by?: string;
+}
