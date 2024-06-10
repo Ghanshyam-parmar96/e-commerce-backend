@@ -1,5 +1,15 @@
 import { Document, ObjectId, Types } from "mongoose";
 
+declare global {
+  namespace Express {
+    interface Request {
+      user: {
+        _id: string;
+      }; // Define the type of user object here
+    }
+  }
+}
+
 // Interface for the main Product document
 export interface IProduct extends Document {
   uniqueId?: Types.ObjectId;
@@ -111,4 +121,45 @@ export interface IOrder extends Document {
   paymentMethod: string;
   status?: string;
   deliveredAt?: Date;
+}
+
+export interface IUser extends Document {
+  fullName: string;
+  email: string;
+  password: string;
+  avatar: string;
+  DOB: Date;
+  gender: string;
+  phoneNumber?: string;
+  role: string;
+  isAdmin: boolean;
+  isVerified: boolean;
+  verifyCode?: number;
+  verifyCodeExpire?: Date;
+  refreshToken: string;
+  address?: IOrderShippingAddress[];
+  resetPasswordToken?: string;
+  resetPasswordExpire?: Date;
+  isPasswordCorrect(enteredPassword: string): Promise<boolean>;
+  generateAccessToken(): string;
+  generateRefreshToken(): string;
+}
+
+export interface searchUserQuery {
+  sort_by?: string;
+  page?: string;
+  limit?: string;
+  role?: string;
+  gender?: string;
+  email?: string;
+  phone_number?: string;
+  is_verified?: string;
+}
+
+export interface searchUserBaseQuery {
+  email?: { $regex: string; $options: string };
+  phoneNumber?: string;
+  role?: string;
+  isVerified?: string;
+  gender?: string;
 }
