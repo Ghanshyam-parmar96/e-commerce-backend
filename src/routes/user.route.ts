@@ -1,13 +1,18 @@
 import { Router } from "express";
 import {
+  changePassword,
   createUser,
   deleteUser,
+  forgotPassword,
+  generateNewPassword,
   getUser,
   logInUser,
   logOutUser,
   renewAccessAndRefreshToken,
+  resendEmailOtp,
   searchUser,
   updateUser,
+  verifyAccount,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import zodValidate from "./../middlewares/zodValidate.middleware.js";
@@ -33,6 +38,16 @@ router.route("/search").get(adminOnly, searchUser);
 router.route("/renew-token").get(renewAccessAndRefreshToken);
 
 router.route("/me").get(isAuthorizedUser, getUser);
+
+router.route("/me/change-password").get(isAuthorizedUser, changePassword);
+
+router.route("/me/forgot-password").get(forgotPassword);
+
+router.route("/me/generate-new-password/:id").get(generateNewPassword);
+
+router.route("/me/verify/:id").get(verifyAccount);
+
+router.route("/me/resend-otp/:id").get(resendEmailOtp);
 
 router
   .route("/me/update")

@@ -141,7 +141,7 @@ export interface IUser extends Document {
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
   isPasswordCorrect(enteredPassword: string): Promise<boolean>;
-  generateAccessToken(): string;
+  generateAccessToken(): number;
   generateRefreshToken(): string;
 }
 

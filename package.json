@@ -24,6 +24,7 @@
     "mongoose": "^8.3.4",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.13",
     "sharp": "^0.33.4",
     "zod": "^3.23.8"
   },
@@ -37,6 +38,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.12.10",
+    "@types/nodemailer": "^6.4.15",
     "@types/sharp": "^0.32.0",
     "nodemon": "^3.1.0",
     "prettier": "^3.2.5",

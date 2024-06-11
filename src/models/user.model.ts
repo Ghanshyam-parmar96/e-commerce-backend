@@ -85,7 +85,7 @@ const userSchema = new mongoose.Schema<IUser>(
       type: [addressSchema],
     },
     resetPasswordToken: {
-      type: String,
+      type: Number,
     },
     resetPasswordExpire: {
       type: Date,

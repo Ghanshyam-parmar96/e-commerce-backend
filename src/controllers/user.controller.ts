@@ -15,6 +15,11 @@ import { cookieOptions } from "../constants.js";
 import jwt from "jsonwebtoken";
 import { SortOrder } from "mongoose";
 import isValidMongodbId from "../utils/isValidMongodbId.js";
+import sendEmail from "../utils/sendMail.js";
+import {
+  forgotPasswordEmail,
+  sendOtpEmailForAccountVerification,
+} from "../utils/writeEmails.js";
 
 const createUser = asyncHandler(async (req: Request<{}, {}, IUser>, res) => {
   const {
@@ -66,9 +71,34 @@ const createUser = asyncHandler(async (req: Request<{}, {}, IUser>, res) => {
     baseQuery.password = process.env.USER_PASSWORD;
   }
 
+  const otp = Math.floor(100000 + Math.random() * 900000);
+
+  if (!isVerified) {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + 15);
+    baseQuery.verifyCode = otp;
+    baseQuery.verifyCodeExpire = date;
+  }
+
   const user = await User.create(baseQuery);
 
-  res.status(201).json(new ApiResponse(201, {}, "user created successfully"));
+  if (!user.isVerified) {
+    const sendUserEmail = await sendEmail(
+      user.email,
+      "OTP - Verify your account",
+      sendOtpEmailForAccountVerification(user.fullName, otp)
+    );
+  }
+
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        user,
+        "Your account created successfully verify your account with OTP!"
+      )
+    );
 });
 
 const searchUser = asyncHandler(
@@ -272,6 +302,244 @@ const updateUser = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, user, "user updated successfully"));
 });
 
+const verifyAccount = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { verifyCode } = req.body;
+
+  isValidMongodbId(id);
+
+  if (!verifyCode) {
+    throw new ApiError(400, "verify code is required");
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, "user is already verified");
+  }
+
+  if (user.verifyCode !== verifyCode) {
+    throw new ApiError(400, "invalid verify code");
+  }
+
+  if (user.verifyCodeExpire! < new Date()) {
+    throw new ApiError(400, "verify code is expired");
+  }
+
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+
+  const updatedUser = await User.findByIdAndUpdate(
+    id,
+    {
+      $set: {
+        isVerified: true,
+        refreshToken,
+      },
+      $unset: {
+        verifyCode: 1,
+        verifyCodeExpire: 1,
+      },
+    },
+    { new: true }
+  ).select("-refreshToken -password -address -__v");
+
+  res
+    .status(200)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .json(new ApiResponse(200, updatedUser, "user verified successfully"));
+});
+
+const resendEmailOtp = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  isValidMongodbId(id);
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, "user is already verified");
+  }
+
+  const verifyCode = Math.floor(100000 + Math.random() * 900000);
+  const verifyCodeExpire = new Date();
+  verifyCodeExpire.setMinutes(verifyCodeExpire.getMinutes() + 15);
+
+  const updatedUser = await User.findByIdAndUpdate(
+    id,
+    {
+      $set: {
+        verifyCode,
+        verifyCodeExpire,
+      },
+    },
+    { new: true }
+  ).select("-refreshToken -password -address -__v");
+
+  // const emailBody = `<p>Dear ${user.fullName},</p>
+  // <p>Thank you for singing up with our website. To complete your registration, please verify your email address by entering th following one-time-password (OTP)</p>
+  // <h2>OTP : ${verifyCode}</h2>
+  // <p>This OTP is valid for 15 minutes. if you didn't request this OTP, please ignore this email.</p>`;
+
+  const sendUserEmail = await sendEmail(
+    user.email,
+    "Verify Your Account - Resend OTP",
+    sendOtpEmailForAccountVerification(user.fullName, verifyCode, true)
+  );
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, "successfully email send"));
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  const id = req.user._id;
+
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(400, "password is required");
+  }
+
+  const user = await User.findById(id).select(
+    "-refreshToken -password -address -__v"
+  );
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(
+      400,
+      "Unauthorized request please verify your account first"
+    );
+  }
+
+  const isMatch = await user.isPasswordCorrect(oldPassword);
+
+  if (!isMatch) {
+    throw new ApiError(400, "invalid user credentials");
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, user, "password changed successfully"));
+});
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "email is required");
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  const verifyCode = Math.floor(100000 + Math.random() * 900000);
+  const verifyCodeExpire = new Date();
+  verifyCodeExpire.setMinutes(verifyCodeExpire.getMinutes() + 15);
+
+  const sendUserEmail = await sendEmail(
+    user.email,
+    "Password Reset Request",
+    forgotPasswordEmail(user.fullName, verifyCode)
+  );
+
+  const updatedUser = await User.findByIdAndUpdate(
+    user._id,
+    {
+      $set: {
+        resetPasswordToken: verifyCode,
+        resetPasswordExpire: verifyCodeExpire,
+      },
+    },
+    { new: true }
+  ).select("-refreshToken -password -address -__v");
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedUser,
+        "send verify code in your email address"
+      )
+    );
+});
+
+const generateNewPassword = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { newPassword, resetPasswordToken } = req.body;
+
+  isValidMongodbId(id);
+
+  if (!newPassword) {
+    throw new ApiError(400, "Invalid new password");
+  }
+
+  const user = await User.findById(id).select(
+    "-refreshToken -password -address -__v"
+  );
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  if (user.resetPasswordExpire! < new Date()) {
+    throw new ApiError(400, "reset password token is expired");
+  }
+
+  if (user.resetPasswordToken! !== resetPasswordToken) {
+    throw new ApiError(400, "invalid reset password token");
+  }
+
+  const refreshToken = user.generateRefreshToken();
+  const accessToken = user.generateAccessToken();
+
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  user.password = newPassword;
+  user.refreshToken = refreshToken;
+
+  await user.save();
+  // const updatedUser = await User.findByIdAndUpdate(
+  //   user._id,
+  //   {
+  //     $set: {
+  //       password: newPassword,
+  //       refreshToken,
+  //     },
+  //     $unset: {
+  //       resetPasswordToken: 1,
+  //       resetPasswordExpire: 1,
+  //     },
+  //   },
+  //   { new: true }
+  // ).select("-refreshToken -password -address -__v");
+
+  res
+    .status(200)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .json(new ApiResponse(200, user, "password update successfully"));
+});
+
 export {
   createUser,
   logOutUser,
@@ -281,4 +549,9 @@ export {
   deleteUser,
   getUser,
   updateUser,
+  verifyAccount,
+  resendEmailOtp,
+  changePassword,
+  forgotPassword,
+  generateNewPassword,
 };
