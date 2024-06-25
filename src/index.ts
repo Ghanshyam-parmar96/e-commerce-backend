@@ -3,6 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
+import NodeCache from "node-cache";
 
 import connectDB from "./db/index.js";
 
@@ -12,16 +13,17 @@ dotenv.config({
 
 const app = express();
 const port = process.env.PORT || 3000;
+export const myCache = new NodeCache();
 
-app.use(cors());
+// app.use(cors());
 
 // Configure express middleware.
-// app.use(
-//   cors({
-//     origin: "http://localhost:3000",
-//     credentials: true,
-//   })
-// );
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 
 app.use(morgan("dev"));
 app.use(express.json({ limit: "20kb" }));
@@ -36,6 +38,7 @@ import categoryRoute from "./routes/category.route.js";
 import brandRoute from "./routes/brand.route.js";
 import orderRoute from "./routes/order.route.js";
 import userRoute from "./routes/user.route.js";
+import dashboardRoute from "./routes/dashboard.route.js";
 
 // routes declarations
 app.use("/api/v1/product", productRoute);
@@ -49,6 +52,8 @@ app.use("/api/v1/brand", brandRoute);
 app.use("/api/v1/order", orderRoute);
 
 app.use("/api/v1/user", userRoute);
+
+app.use("/api/v1/dashboard", dashboardRoute);
 
 // connect mongodb
 connectDB()

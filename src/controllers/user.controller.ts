@@ -160,7 +160,7 @@ const logInUser = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email });
   if (!user) {
-    throw new ApiError(400, "user does not exist");
+    throw new ApiError(400, "invalid user credentials");
   }
 
   if (!user.isVerified) {

@@ -121,6 +121,7 @@ export interface IOrder extends Document {
   paymentMethod: string;
   status?: string;
   deliveredAt?: Date;
+  createdAt: Date;
 }
 
 export interface IUser extends Document {
