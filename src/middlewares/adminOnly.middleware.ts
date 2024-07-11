@@ -10,9 +10,8 @@ const adminOnly = asyncHandler(async (req, _, next) => {
   }
 
   const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string);
-
-  const _id: string = typeof decoded !== "string" && decoded._id;
-  const isAdmin: boolean = typeof decoded !== "string" && decoded.isAdmin;
+  const { _id, isAdmin }: { _id: string; isAdmin: boolean } =
+    typeof decoded !== "string" && decoded.isAdmin;
 
   if (!isAdmin) {
     throw new ApiError(
@@ -21,8 +20,7 @@ const adminOnly = asyncHandler(async (req, _, next) => {
     );
   }
 
-  req.user = { _id };
-
+  req.userId = _id;
   next();
 });
 

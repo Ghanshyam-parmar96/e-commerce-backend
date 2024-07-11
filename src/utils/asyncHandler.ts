@@ -16,7 +16,6 @@ const asyncHandler =
           success: false,
           statusCode: error.statusCode,
           message: error.message,
-          errors: error.errors,
           data: error.data,
         });
       } else {

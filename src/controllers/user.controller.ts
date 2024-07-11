@@ -11,7 +11,6 @@ import fs_extra from "fs-extra";
 import { ApiError } from "../utils/apiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/apiResponse.js";
-import { cookieOptions } from "../constants.js";
 import jwt from "jsonwebtoken";
 import { SortOrder } from "mongoose";
 import isValidMongodbId from "../utils/isValidMongodbId.js";
@@ -20,82 +19,43 @@ import {
   forgotPasswordEmail,
   sendOtpEmailForAccountVerification,
 } from "../utils/writeEmails.js";
+import * as z from "zod";
+import {
+  zodCreateUserSchema,
+  zodLoginUserSchema,
+} from "../validators/zodUser.validator.js";
 
-const createUser = asyncHandler(async (req: Request<{}, {}, IUser>, res) => {
-  const {
-    avatar,
-    password,
-    email,
-    phoneNumber,
-    isVerified,
-    DOB,
-    gender,
-    fullName,
-  } = req.body;
+const createUser = asyncHandler(async (req, res) => {
+  const { email, fullName } = req.body as z.infer<typeof zodCreateUserSchema>;
 
-  if (isVerified && isVerified === true) {
-    if (!avatar) throw new ApiError(400, "all fields are required");
-  } else {
-    if (!DOB || !gender || !password || !phoneNumber)
-      throw new ApiError(400, "all fields are required");
-  }
+  const isUserExist = await User.findOne({ email }).select("email");
+  console.log(isUserExist);
 
-  const isUserExist = await User.findOne({ $or: [{ email }, { phoneNumber }] });
   if (isUserExist) {
     throw new ApiError(400, "user already exist");
   }
 
-  const baseQuery: Partial<IUser> = { ...req.body };
-  const file = req.files as Express.Multer.File[];
-
-  if (fullName) {
-    baseQuery.fullName = `${fullName[0].toUpperCase()}${fullName.slice(1).toLowerCase()}`;
-  }
-
-  if (!avatar && file.length === 1) {
-    try {
-      const imagesUrl = await imageResizer(file);
-      const uploadPromise = imagesUrl.map((image) => uploadOnCloudinary(image));
-      const uploadResult = (await Promise.all(uploadPromise)).filter(
-        (item): item is string => typeof item === "string"
-      );
-      baseQuery.avatar = uploadResult[0];
-    } catch (error) {
-      file.map((file) => async () => await fs_extra.remove(file.path));
-
-      throw new ApiError(500, "internal sever error while uploading image");
-    }
-  }
-
-  if (!password) {
-    baseQuery.password = process.env.USER_PASSWORD;
-  }
-
   const otp = Math.floor(100000 + Math.random() * 900000);
 
-  if (!isVerified) {
-    const date = new Date();
-    date.setMinutes(date.getMinutes() + 15);
-    baseQuery.verifyCode = otp;
-    baseQuery.verifyCodeExpire = date;
-  }
+  const user = await User.create({
+    ...req.body,
+    fullName: `${fullName[0].toUpperCase()}${fullName.slice(1).toLowerCase()}`,
+    verifyCode: otp,
+    verifyCodeExpire: new Date().setMinutes(new Date().getMinutes() + 15),
+  });
 
-  const user = await User.create(baseQuery);
-
-  if (!user.isVerified) {
-    const sendUserEmail = await sendEmail(
-      user.email,
-      "OTP - Verify your account",
-      sendOtpEmailForAccountVerification(user.fullName, otp)
-    );
-  }
+  await sendEmail(
+    user.email,
+    "OTP - Verify your account",
+    sendOtpEmailForAccountVerification(user.fullName, otp)
+  );
 
   res
     .status(201)
     .json(
       new ApiResponse(
         201,
-        user,
+        user._id,
         "Your account created successfully verify your account with OTP!"
       )
     );
@@ -128,7 +88,17 @@ const searchUser = asyncHandler(
       .sort(sort_by && sort)
       .skip(skip)
       .limit(limit)
-      .select("-refreshToken -password -address -__v");
+      .select([
+        "fullName",
+        "email",
+        "phoneNumber",
+        "role",
+        "avatar",
+        "DOB",
+        "gender",
+        "isVerified",
+        "isAdmin",
+      ]);
 
     const [users, count] = await Promise.all([
       usersPromise,
@@ -152,11 +122,7 @@ const searchUser = asyncHandler(
 );
 
 const logInUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    throw new ApiError(400, "email and password are required");
-  }
+  const { email, password } = req.body as z.infer<typeof zodLoginUserSchema>;
 
   const user = await User.findOne({ email });
   if (!user) {
@@ -165,7 +131,7 @@ const logInUser = asyncHandler(async (req, res) => {
 
   if (!user.isVerified) {
     throw new ApiError(
-      400,
+      403,
       "Unauthorized request please verify your account first"
     );
   }
@@ -182,38 +148,41 @@ const logInUser = asyncHandler(async (req, res) => {
     user._id,
     { $set: { refreshToken } },
     { new: true }
-  ).select("-refreshToken -password -address -__v");
+  ).select(["fullName", "email", "avatar", "isVerified", "isAdmin"]);
 
-  res
-    .status(200)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .json(new ApiResponse(200, loggedInUser, "user logged in successfully"));
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        userId: loggedInUser?._id,
+        fullName: loggedInUser?.fullName,
+        avatar: loggedInUser?.avatar,
+        email: loggedInUser?.email,
+        isAdmin: loggedInUser?.isAdmin,
+        isVerified: loggedInUser?.isVerified,
+        accessToken,
+        refreshToken,
+      },
+      "user logged in successfully"
+    )
+  );
 });
 
 const logOutUser = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(
-    req.user._id,
-    { $set: { refreshToken: "" } },
-    { new: true }
-  );
+  await User.findByIdAndUpdate(req.userId, { $set: { refreshToken: "" } });
 
-  res
-    .status(200)
-    .clearCookie("accessToken", cookieOptions)
-    .clearCookie("refreshToken", cookieOptions)
-    .json(new ApiResponse(200, {}, "user logged out"));
+  res.status(200).json(new ApiResponse(200, {}, "user logged out"));
 });
 
 const renewAccessAndRefreshToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken = req.cookies.refreshToken;
+  const token = req.headers.cookie;
 
-  if (!incomingRefreshToken) {
-    throw new ApiError(400, "Unauthorized request");
+  if (!token) {
+    throw new ApiError(401, "Unauthorized request");
   }
 
   const decodedToken = jwt.verify(
-    incomingRefreshToken,
+    token,
     process.env.REFRESH_TOKEN_SECRET as string
   );
 
@@ -224,33 +193,42 @@ const renewAccessAndRefreshToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, "invalid Token");
   }
 
-  if (incomingRefreshToken !== user.refreshToken) {
+  if (token !== user.refreshToken) {
     throw new ApiError(401, "refresh token is expire or used");
   }
 
   const accessToken = user.generateAccessToken();
   const refreshToken = user.generateRefreshToken();
 
-  const updatedUser = await User.findByIdAndUpdate(
+  const updatedUser = await User.findOneAndUpdate(
     user._id,
     { $set: { refreshToken } },
     { new: true }
-  ).select("-refreshToken -password -address -__v");
+  ).select(["fullName", "email", "avatar", "isVerified", "isAdmin"]);
 
-  res
-    .status(200)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .json(new ApiResponse(200, updatedUser, "accessToken is refreshed"));
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        userId: updatedUser?._id,
+        fullName: updatedUser?.fullName,
+        avatar: updatedUser?.avatar,
+        email: updatedUser?.email,
+        isAdmin: updatedUser?.isAdmin,
+        isVerified: updatedUser?.isVerified,
+        accessToken,
+        refreshToken,
+      },
+      "accessToken is refreshed"
+    )
+  );
 });
 
 const deleteUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
   isValidMongodbId(id);
 
-  const user = await User.findByIdAndDelete(id).select(
-    "-refreshToken -password -address -__v"
-  );
+  const user = await User.findByIdAndDelete(id).select(["email", "fullName"]);
 
   if (!user) {
     throw new ApiError(404, "user not found");
@@ -262,8 +240,16 @@ const deleteUser = asyncHandler(async (req, res) => {
 });
 
 const getUser = asyncHandler(async (req, res) => {
-  const id = req.user._id;
-  const user = await User.findById(id);
+  const id = req.userId;
+  const user = await User.findById(id).select([
+    "fullName",
+    "email",
+    "avatar",
+    "DOB",
+    "gender",
+    "isVerified",
+    "isAdmin",
+  ]);
 
   if (!user) {
     throw new ApiError(404, "user not found");
@@ -273,7 +259,7 @@ const getUser = asyncHandler(async (req, res) => {
 });
 
 const updateUser = asyncHandler(async (req, res) => {
-  const id = req.user._id;
+  const id = req.userId;
 
   const baseQuery: Partial<IUser> = { ...req.body };
   const file = req.files as Express.Multer.File[];
@@ -334,7 +320,7 @@ const verifyAccount = asyncHandler(async (req, res) => {
   const refreshToken = user.generateRefreshToken();
 
   const updatedUser = await User.findByIdAndUpdate(
-    id,
+    user._id,
     {
       $set: {
         isVerified: true,
@@ -346,13 +332,24 @@ const verifyAccount = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-refreshToken -password -address -__v");
+  ).select(["fullName", "email", "avatar", "isVerified", "isAdmin"]);
 
-  res
-    .status(200)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .json(new ApiResponse(200, updatedUser, "user verified successfully"));
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        userId: updatedUser?._id,
+        fullName: updatedUser?.fullName,
+        avatar: updatedUser?.avatar,
+        email: updatedUser?.email,
+        isAdmin: updatedUser?.isAdmin,
+        isVerified: updatedUser?.isVerified,
+        accessToken,
+        refreshToken,
+      },
+      "user verify successfully"
+    )
+  );
 });
 
 const resendEmailOtp = asyncHandler(async (req, res) => {
@@ -373,45 +370,28 @@ const resendEmailOtp = asyncHandler(async (req, res) => {
   const verifyCodeExpire = new Date();
   verifyCodeExpire.setMinutes(verifyCodeExpire.getMinutes() + 15);
 
-  const updatedUser = await User.findByIdAndUpdate(
-    id,
-    {
-      $set: {
-        verifyCode,
-        verifyCodeExpire,
-      },
+  await User.findByIdAndUpdate(id, {
+    $set: {
+      verifyCode,
+      verifyCodeExpire,
     },
-    { new: true }
-  ).select("-refreshToken -password -address -__v");
+  }).select("email");
 
-  // const emailBody = `<p>Dear ${user.fullName},</p>
-  // <p>Thank you for singing up with our website. To complete your registration, please verify your email address by entering th following one-time-password (OTP)</p>
-  // <h2>OTP : ${verifyCode}</h2>
-  // <p>This OTP is valid for 15 minutes. if you didn't request this OTP, please ignore this email.</p>`;
-
-  const sendUserEmail = await sendEmail(
+  await sendEmail(
     user.email,
     "Verify Your Account - Resend OTP",
     sendOtpEmailForAccountVerification(user.fullName, verifyCode, true)
   );
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, updatedUser, "successfully email send"));
+  res.status(200).json(new ApiResponse(200, {}, "successfully email send"));
 });
 
 const changePassword = asyncHandler(async (req, res) => {
-  const id = req.user._id;
+  const id = req.userId;
 
   const { oldPassword, newPassword } = req.body;
 
-  if (!oldPassword || !newPassword) {
-    throw new ApiError(400, "password is required");
-  }
-
-  const user = await User.findById(id).select(
-    "-refreshToken -password -address -__v"
-  );
+  const user = await User.findById(id).select("-refreshToken -address -__v");
 
   if (!user) {
     throw new ApiError(404, "user not found");
@@ -419,7 +399,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
   if (!user.isVerified) {
     throw new ApiError(
-      400,
+      403,
       "Unauthorized request please verify your account first"
     );
   }
@@ -433,9 +413,20 @@ const changePassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   await user.save();
 
+  const userData = {
+    _id: user._id,
+    fullName: user.fullName,
+    email: user.email,
+    avatarUrl: user.avatar,
+    DOB: user.DOB,
+    gender: user.gender,
+    isVerified: user.isVerified,
+    isAdmin: user.isAdmin,
+  };
+
   res
     .status(200)
-    .json(new ApiResponse(200, user, "password changed successfully"));
+    .json(new ApiResponse(200, userData, "password changed successfully"));
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -451,35 +442,34 @@ const forgotPassword = asyncHandler(async (req, res) => {
     throw new ApiError(404, "user not found");
   }
 
-  const verifyCode = Math.floor(100000 + Math.random() * 900000);
-  const verifyCodeExpire = new Date();
-  verifyCodeExpire.setMinutes(verifyCodeExpire.getMinutes() + 15);
+  if (!user.isVerified) {
+    throw new ApiError(
+      403,
+      "Unauthorized request please verify your account first"
+    );
+  }
 
-  const sendUserEmail = await sendEmail(
+  const resetPasswordToken = Math.floor(100000 + Math.random() * 900000);
+  const resetPasswordExpire = new Date();
+  resetPasswordExpire.setMinutes(resetPasswordExpire.getMinutes() + 15);
+
+  await sendEmail(
     user.email,
     "Password Reset Request",
-    forgotPasswordEmail(user.fullName, verifyCode)
+    forgotPasswordEmail(user.fullName, resetPasswordToken)
   );
 
-  const updatedUser = await User.findByIdAndUpdate(
-    user._id,
-    {
-      $set: {
-        resetPasswordToken: verifyCode,
-        resetPasswordExpire: verifyCodeExpire,
-      },
+  await User.findByIdAndUpdate(user._id, {
+    $set: {
+      resetPasswordToken,
+      resetPasswordExpire,
     },
-    { new: true }
-  ).select("-refreshToken -password -address -__v");
+  }).select("email");
 
   res
     .status(200)
     .json(
-      new ApiResponse(
-        200,
-        updatedUser,
-        "send verify code in your email address"
-      )
+      new ApiResponse(200, user._id, "Verify code have been send in your Email")
     );
 });
 
@@ -489,13 +479,10 @@ const generateNewPassword = asyncHandler(async (req, res) => {
 
   isValidMongodbId(id);
 
-  if (!newPassword) {
-    throw new ApiError(400, "Invalid new password");
-  }
-
-  const user = await User.findById(id).select(
-    "-refreshToken -password -address -__v"
-  );
+  const user = await User.findById(id).select([
+    "resetPasswordToken",
+    "resetPasswordExpire",
+  ]);
 
   if (!user) {
     throw new ApiError(404, "user not found");
@@ -509,35 +496,17 @@ const generateNewPassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "invalid reset password token");
   }
 
-  const refreshToken = user.generateRefreshToken();
-  const accessToken = user.generateAccessToken();
-
   user.resetPasswordToken = undefined;
   user.resetPasswordExpire = undefined;
   user.password = newPassword;
-  user.refreshToken = refreshToken;
 
   await user.save();
-  // const updatedUser = await User.findByIdAndUpdate(
-  //   user._id,
-  //   {
-  //     $set: {
-  //       password: newPassword,
-  //       refreshToken,
-  //     },
-  //     $unset: {
-  //       resetPasswordToken: 1,
-  //       resetPasswordExpire: 1,
-  //     },
-  //   },
-  //   { new: true }
-  // ).select("-refreshToken -password -address -__v");
 
   res
     .status(200)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .json(new ApiResponse(200, user, "password update successfully"));
+    .json(
+      new ApiResponse(200, {}, "password update successfully Please login")
+    );
 });
 
 export {

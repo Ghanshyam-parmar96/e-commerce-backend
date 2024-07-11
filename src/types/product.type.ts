@@ -3,9 +3,7 @@ import { Document, ObjectId, Types } from "mongoose";
 declare global {
   namespace Express {
     interface Request {
-      user: {
-        _id: string;
-      }; // Define the type of user object here
+      userId: string; // Define the type of user object here
     }
   }
 }
@@ -142,7 +140,7 @@ export interface IUser extends Document {
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
   isPasswordCorrect(enteredPassword: string): Promise<boolean>;
-  generateAccessToken(): number;
+  generateAccessToken(): string;
   generateRefreshToken(): string;
 }
 

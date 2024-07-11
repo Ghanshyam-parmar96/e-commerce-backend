@@ -44,11 +44,9 @@ const userSchema = new mongoose.Schema<IUser>(
     },
     DOB: {
       type: Date,
-      required: [true, "age is required"],
     },
     gender: {
       type: String,
-      required: [true, "gender is required"],
     },
     password: {
       type: String,
@@ -110,18 +108,13 @@ userSchema.methods.isPasswordCorrect = async function (
 userSchema.methods.generateAccessToken = function () {
   const data: { _id: string; isAdmin?: boolean } = { _id: this._id };
   if (this.isAdmin) data.isAdmin = true;
-
-  return jwt.sign(data, process.env.ACCESS_TOKEN_SECRET as string, {
-    expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
-  });
+  return jwt.sign(data, process.env.ACCESS_TOKEN_SECRET as string);
 };
+
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     { _id: this._id },
-    process.env.REFRESH_TOKEN_SECRET as string,
-    {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
-    }
+    process.env.REFRESH_TOKEN_SECRET as string
   );
 };
 

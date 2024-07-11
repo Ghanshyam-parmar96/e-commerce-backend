@@ -33,8 +33,18 @@ export const deleteOnCloudinary = async (localFilePath: string[]) => {
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 
+  const defaultImage =
+    "https://res.cloudinary.com/dmrboyo0j/image/upload/v1717587362/e-commerce/product_images/vsuyokcgzsw332zz4483.webp";
+
+  if (!localFilePath) return null;
+  if (
+    defaultImage === localFilePath[0] ||
+    !defaultImage.startsWith("https://res.cloudinary.com")
+  ) {
+    return null;
+  }
+
   try {
-    if (!localFilePath) return null;
     const response = await cloudinary.api.delete_resources(
       localFilePath.map((url) =>
         url.split("/").slice(-3).join("/").slice(0, -5)
